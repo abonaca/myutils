@@ -118,7 +118,7 @@ def in2val(index, delta, initial):
 	return initial+index/delta
 	
 def val2in(value, delta, initial):
-	return int((value-initial)/delta)
+	return np.int64((value-initial)/delta)
 
 
 # equatorial <-> cartesian
