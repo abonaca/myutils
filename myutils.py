@@ -65,6 +65,14 @@ def printcol(*arg, **kwarg):
 	if kwarg:
 		f.close()
 
+def wherein(x, y):
+    """Returns indices of x which correspond to elements of y"""
+    
+    xsorted = np.argsort(x)
+    ypos = np.searchsorted(x[xsorted], y)
+    indices = xsorted[ypos]
+    
+    return indices
 
 # manipulate astropy tables
 def extract_column(t, names):
@@ -80,7 +88,7 @@ def extract_column(t, names):
 		lst.append(np.array(t[i]))
 	return lst
 
-def add_npcolumn(t, vec=None, name="", dtype='float', index=None):
+def add_npcolumn(t, vec=np.empty(0), name="", dtype='float', index=None):
 	"""Add numpy array as a table column
 	Parameters:
 	t - astropy table
@@ -94,7 +102,7 @@ def add_npcolumn(t, vec=None, name="", dtype='float', index=None):
 	if index==None:
 		index = len(t.columns)
 	
-	if vec==None:
+	if np.size(vec)==0:
 		vec = np.array(np.size(t))
 		
 	tvec = astropy.table.Column(vec, name=name, dtype=dtype)
@@ -139,19 +147,39 @@ def eq2car(ra, dec):
 	return(x,y,z)
 
 def car2eq(x,y,z):
-	"""Convert cartesian coordinates to equatoria;
+	"""Convert cartesian coordinates to equatorial
 	Returns ra, dec in radians"""
 	
 	N=np.size(z)
 	ra=np.zeros(N)
 	for i in range(N):
 		if(x[i]!=0):
-			ra[i]=atan(y[i]/x[i])
+			ra[i]=np.arctan2(y[i], x[i])
 		else:
 			ra[i]=np.pi/2.
 	dec=np.arcsin(z)
 	
 	return(ra,dec)
+
+
+# interpolation
+def between_lines(x, y, x1, y1, x2, y2):
+    """check if points x,y are between lines defined with x1,y1 and x2,y2"""
+    
+    if y1[0]>y1[-1]:
+        y1 = y1[::-1]
+        x1 = x1[::-1]
+        
+    if y2[0]>y2[-1]:
+        y2 = y2[::-1]
+        x2 = x2[::-1]
+    
+    xin1 = np.interp(y,y1,x1)
+    xin2 = np.interp(y,y2,x2)
+    
+    indin = (x>=xin1) & (x<=xin2)
+    
+    return indin
 
 
 # Math
@@ -172,6 +200,64 @@ def crossprodmat(a):
 	A=np.matrix([0, -a[2], a[1], a[2], 0, -a[0], -a[1], a[0], 0])
 	A.shape = (3,3)
 	return A
+
+def rotmatrix(theta, i):
+    """Returns 3x3 rotation matrix around axis i for angle theta (in deg)"""
+    theta = np.radians(theta)
+    cth = np.cos(theta)
+    sth = np.sin(theta)
+    
+    sign = (-1)**i
+    R2 = np.array([[cth, -sign*sth], [sign*sth, cth]])
+    
+    R = np.zeros((3,3))
+    R[i][i] = 1
+    
+    if i==0:
+        R[1:,1:] = R2
+    elif i==1:
+        R[0][0] = R2[0][0]
+        R[0][2] = R2[0][1]
+        R[2][0] = R2[1][0]
+        R[2][2] = R2[1][1]
+    elif i==2:
+        R[:2,:2] = R2
+    
+    return R
+
+def sph2cart(ra, dec):
+    """Convert two angles on a unit sphere to a 3d vector"""
+    
+    x = np.cos(ra) * np.cos(dec)
+    y = np.sin(ra) * np.cos(dec)
+    z = np.sin(dec)
+    
+    return (x, y, z)
+
+def cart2sph(x, y, z):
+    """Convert a 3d vector on a unit sphere to two angles"""
+    
+    ra = np.arctan2(y, x)
+    dec = np.arcsin(z)
+    
+    ra[ra<0] += 2*np.pi
+    
+    return (ra, dec)
+
+def rotate_angles(a, d, R):
+    """Return angles a, d rotated by a 3x3 matrix R
+    All angles are in degrees"""
+    
+    x_, y_, z_ = sph2cart(np.radians(a), np.radians(d))
+    X = np.column_stack((x_, y_, z_))
+    
+    X_rot = np.zeros(np.shape(X))
+    for i in range(np.size(x_)):
+        X_rot[i] = np.dot(R, X[i])
+    
+    a_rot, d_rot = cart2sph(X_rot[:, 0], X_rot[:, 1], X_rot[:, 2])
+    
+    return (np.degrees(a_rot), np.degrees(d_rot))
 
 # Numerical recipes
 def gauleg(x1, x2, x, w, n):
