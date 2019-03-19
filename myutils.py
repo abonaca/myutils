@@ -1,4 +1,5 @@
 # General utilities
+from __future__ import print_function, division
 from math import *
 import inspect
 import numpy as np
@@ -296,7 +297,7 @@ def callgauleg():
 	gauleg(a, b, x, w, n)
 	
 	fx=np.sin(x)
-	print sum(fx*w)
+	print(sum(fx*w))
 
 
 	
